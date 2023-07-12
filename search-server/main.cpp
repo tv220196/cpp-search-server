@@ -74,7 +74,7 @@ public:
         set<string> minus_words;
     };
 
-    QueryPlusAndMinusWords FindQueryAndMinusWords(const string& text) const {
+    QueryPlusAndMinusWords FindQueryPlusAndMinusWords(const string& text) const {
         QueryPlusAndMinusWords query_plus_and_minus_words;
         for (const string& word : SplitIntoWordsNoStop(text)) {
             if (word[0] == '-') {
@@ -88,7 +88,7 @@ public:
     }
 
     vector<Document> FindTopDocuments(const string& raw_query) const {
-        QueryPlusAndMinusWords query_plus_and_minus_words = FindQueryAndMinusWords(raw_query);
+        QueryPlusAndMinusWords query_plus_and_minus_words = FindQueryPlusAndMinusWords(raw_query);
         auto matched_documents = FindAllDocuments(query_plus_and_minus_words);
         sort(matched_documents.begin(), matched_documents.end(),
             [](const Document& lhs, const Document& rhs) {
