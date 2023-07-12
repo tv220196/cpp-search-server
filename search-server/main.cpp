@@ -65,30 +65,31 @@ public:
         map<string, double> words_tf;
         double word_proportion = 1. / static_cast<double>(words.size());
         for (const string& word : words) {
-            words_tf[word] += word_proportion;
-            inverted_index_[word].insert({ document_id, words_tf[word] });
+            inverted_index_[word][document_id] += word_proportion;
         }
     }
 
-    struct QueryAndMinusWords {
-        set<string> query_words;
+    struct QueryPlusAndMinusWords {
+        set<string> plus_words;
         set<string> minus_words;
     };
 
-    QueryAndMinusWords FindQueryAndMinusWords(const string& text) const {
-        QueryAndMinusWords query_and_minus_words;
+    QueryPlusAndMinusWords FindQueryAndMinusWords(const string& text) const {
+        QueryPlusAndMinusWords query_plus_and_minus_words;
         for (const string& word : SplitIntoWordsNoStop(text)) {
-            query_and_minus_words.query_words.insert(word);
             if (word[0] == '-') {
-                query_and_minus_words.minus_words.insert(word.substr(1, word.size() - 1));
+                query_plus_and_minus_words.minus_words.insert(word.substr(1, word.size() - 1));
+            }
+            else {
+                query_plus_and_minus_words.plus_words.insert(word);
             }
         }
-        return query_and_minus_words;
+        return query_plus_and_minus_words;
     }
 
     vector<Document> FindTopDocuments(const string& raw_query) const {
-        QueryAndMinusWords query_and_minus_words = FindQueryAndMinusWords(raw_query);
-        auto matched_documents = FindAllDocuments(query_and_minus_words);
+        QueryPlusAndMinusWords query_plus_and_minus_words = FindQueryAndMinusWords(raw_query);
+        auto matched_documents = FindAllDocuments(query_plus_and_minus_words);
         sort(matched_documents.begin(), matched_documents.end(),
             [](const Document& lhs, const Document& rhs) {
                 return lhs.relevance > rhs.relevance;
@@ -120,14 +121,12 @@ private:
     }
 
     double CountIdf(const map<int, double>& inverted_index_id_tf) const {
-        double query_word_idf;
-        query_word_idf = log(document_count_ / static_cast<double>(inverted_index_id_tf.size()));
-        return query_word_idf;
+        return log(document_count_ / static_cast<double>(inverted_index_id_tf.size()));        
     }
 
-    vector<Document> FindAllDocuments(const QueryAndMinusWords& query_and_minus_words) const {
+    vector<Document> FindAllDocuments(const QueryPlusAndMinusWords& query_plus_and_minus_words) const {
         map<int, double> document_id_relevance;
-        for (const string& word : query_and_minus_words.query_words) {
+        for (const string& word : query_plus_and_minus_words.plus_words) {
             double query_word_idf = 0;
             if (inverted_index_.count(word) != 0) {
                 map<int, double> inverted_index_id_tf = inverted_index_.at(word);
@@ -137,7 +136,7 @@ private:
                 }
             }
         }
-        for (const string& word : query_and_minus_words.minus_words) {
+        for (const string& word : query_plus_and_minus_words.minus_words) {
             if (inverted_index_.count(word) != 0) {
                 map<int, double> inverted_index_id_tf = inverted_index_.at(word);
                 for (const auto& [id, tf] : inverted_index_id_tf) {
