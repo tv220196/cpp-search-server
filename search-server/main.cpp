@@ -52,8 +52,6 @@ struct Document {
 
 class SearchServer {
 public:
-    double document_count_ = 0.;
-
     void SetStopWords(const string& text) {
         for (const string& word : SplitIntoWords(text)) {
             stop_words_.insert(word);
@@ -61,6 +59,7 @@ public:
     }
 
     void AddDocument(int document_id, const string& document) {
+        document_count_ += 1.;
         const vector<string> words = SplitIntoWordsNoStop(document);
         map<string, double> words_tf;
         double word_proportion = 1. / static_cast<double>(words.size());
@@ -101,6 +100,7 @@ public:
     }
 
 private:
+    double document_count_ = 0.;
 
     map<string, map<int, double>> inverted_index_;
 
@@ -156,7 +156,6 @@ SearchServer CreateSearchServer() {
     SearchServer search_server;
     search_server.SetStopWords(ReadLine());
 
-    const int document_count = ReadLineWithNumber();
     search_server.document_count_ = static_cast<double>(document_count);
     for (int document_id = 0; document_id < document_count; ++document_id) {
         search_server.AddDocument(document_id, ReadLine());
