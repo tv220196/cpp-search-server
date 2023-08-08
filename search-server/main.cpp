@@ -82,42 +82,30 @@ public:
         }
     }
     explicit SearchServer(const string& stop_words_string)
+        :SearchServer(SplitIntoWords(stop_words_string))
     {
-        for (const string& word : SplitIntoWords(stop_words_string)) {
-            if (!IsValidWord(word)) {
-                throw invalid_argument("stop words include special characters"s);
-            }
-            stop_words_.insert(word);
-        }
     }
     SearchServer() = default;
 
     int GetDocumentCount() const {
-        return static_cast<int>(document_count_);
+        return static_cast<int>(document_id_.size());
     }
 
     void AddDocument(int document_id, const string& document, DocumentStatus status, const vector<int>& ratings) {
-        if (document_id < 0 || document_status_.count(document_id) == 1) {
+        if (document_id < 0 || documents_.count(document_id) == 1) {
             throw invalid_argument("incorrect id"s);
         }
         if (!IsValidWord(document)) {
             throw invalid_argument("document includes special characters"s);
         }
         const vector<string> words = SplitIntoWordsNoStop(document);
-        document_count_ += 1.;
         document_id_.push_back(document_id);
         map<string, double> words_tf;
         double word_proportion = 1. / static_cast<double>(words.size());
         for (const string& word : words) {
             inverted_index_[word][document_id] += word_proportion;
         }
-        document_status_[document_id] = status;
-        if (ratings.empty()) {
-            average_document_rating_[document_id] = 0;
-        }
-        else {
-            average_document_rating_[document_id] = ComputeAverageRating(ratings);
-        }
+        documents_[document_id] = { ComputeAverageRating(ratings), status };
     }
 
     struct QueryPlusAndMinusWords {
@@ -126,8 +114,14 @@ public:
     };
 
     QueryPlusAndMinusWords FindQueryPlusAndMinusWords(const string& text) const {
+        if (!IsValidWord(text)) {
+            throw invalid_argument("query includes special characters");
+        }
         QueryPlusAndMinusWords query_plus_and_minus_words;
         for (const string& word : SplitIntoWordsNoStop(text)) {
+            if (!IsValidByMinus(word)) {
+                throw invalid_argument("incorrect using minuses");
+            }
             if (word[0] == '-') {
                 query_plus_and_minus_words.minus_words.insert(word.substr(1, word.size() - 1));
             }
@@ -140,12 +134,6 @@ public:
 
     tuple<vector<string>, DocumentStatus> MatchDocument(const string& raw_query, int document_id) const {//(2.8.6)кортеж содержит пересечение плюс-слов запроса и слов документа с указанным айди
         QueryPlusAndMinusWords query_plus_and_minus_words = FindQueryPlusAndMinusWords(raw_query);
-        if (!IsValidWord(raw_query)) {
-            throw invalid_argument("query includes special characters");
-        }
-        if (!IsValidByMinus(raw_query)) {
-            throw invalid_argument("incorrect using minuses");
-        }
         vector<string> query_plus_words_in_document;
         for (const string& word : query_plus_and_minus_words.plus_words) {
             if (inverted_index_.count(word) != 0) {
@@ -163,22 +151,16 @@ public:
                 for (const auto& [id, tf] : inverted_index_id_tf) {
                     if (id == document_id) {
                         query_plus_words_in_document.clear();
-                        return tuple<vector<string>, DocumentStatus>{ query_plus_words_in_document, document_status_.at(document_id) };
+                        return tuple<vector<string>, DocumentStatus>{ query_plus_words_in_document, documents_.at(document_id).document_status };
                     }
                 }
             }
         }
-        return tuple<vector<string>, DocumentStatus>{ query_plus_words_in_document, document_status_.at(document_id) };
+        return tuple<vector<string>, DocumentStatus>{ query_plus_words_in_document, documents_.at(document_id).document_status };
     }
 
     template <typename DocumentPredicate>
     vector<Document> FindTopDocuments(const string& raw_query, DocumentPredicate document_predicate) const {
-        if (!IsValidWord(raw_query)) {
-            throw invalid_argument("query includes special characters");
-        }
-        if (!IsValidByMinus(raw_query)) {
-            throw invalid_argument("incorrect using minuses");
-        }
         QueryPlusAndMinusWords query_plus_and_minus_words = FindQueryPlusAndMinusWords(raw_query);
         auto matched_documents = FindAllDocuments(query_plus_and_minus_words, document_predicate);
         sort(matched_documents.begin(), matched_documents.end(),
@@ -199,18 +181,17 @@ public:
     }
 
     int GetDocumentId(int index) const {
-        if (index < 0 || index >= static_cast<int>(document_count_)) {
-            throw out_of_range("incorrect id"s);
-        }
-        return document_id_[index];
+        return document_id_.at(index);
     }
 
 private:
     set<string> stop_words_;
-    double document_count_ = 0.;
     vector<int> document_id_;
-    map<int, int> average_document_rating_;
-    map<int, DocumentStatus> document_status_;
+    struct DocumentData {
+        int average_document_rating;
+        DocumentStatus document_status;
+    };
+    map<int, DocumentData> documents_;
     map<string, map<int, double>> inverted_index_;
 
     bool IsStopWord(const string& word) const {
@@ -233,27 +214,27 @@ private:
             });
     }
 
-    static bool IsValidByMinus(const string& text) {
-        for (int i = 0; i < text.size() - 2; ++i) {
-            if (text[i] == '-' && text[i + 1] == '-') {
-                return false;
-            }
-            if (text[i] == '-' && text[i + 1] == ' ') {
-                return false;
-            }
+    static bool IsValidByMinus(const string& word) {
+        if (word.size() == 1 && word[0] == '-') {
+            return false;
         }
-        if (text[text.size() - 1] == '-') {
+        if (word.size() >= 2 && word[0] == '-' && word[1] == '-') {
             return false;
         }
         return true;
     }
 
     static int ComputeAverageRating(const vector<int>& ratings) {
-        return static_cast<signed int>(accumulate(ratings.begin(), ratings.end(), 0)) / static_cast<signed int>(ratings.size());
+        if (ratings.empty()) {
+            return 0;
+        }
+        else {
+            return static_cast<signed int>(accumulate(ratings.begin(), ratings.end(), 0)) / static_cast<signed int>(ratings.size());
+        }
     }
 
     double CountIdf(const map<int, double>& inverted_index_id_tf) const {
-        return log(document_count_ / static_cast<double>(inverted_index_id_tf.size()));
+        return log(static_cast<double>(document_id_.size()) / static_cast<double>(inverted_index_id_tf.size()));
     }
 
     template <typename DocumentPredicate>
@@ -279,8 +260,8 @@ private:
         }
         vector<Document> matched_documents;
         for (const auto& [id, relev] : document_id_relevance) {
-            if (document_predicate(id, document_status_.at(id), average_document_rating_.at(id))) {
-                matched_documents.push_back({ id, relev, average_document_rating_.at(id) });
+            if (document_predicate(id, documents_.at(id).document_status, documents_.at(id).average_document_rating)) {
+                matched_documents.push_back({ id, relev, documents_.at(id).average_document_rating });
             }
         }
         return matched_documents;
