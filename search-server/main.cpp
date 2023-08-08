@@ -95,9 +95,6 @@ public:
         if (document_id < 0 || documents_.count(document_id) == 1) {
             throw invalid_argument("incorrect id"s);
         }
-        if (!IsValidWord(document)) {
-            throw invalid_argument("document includes special characters"s);
-        }
         const vector<string> words = SplitIntoWordsNoStop(document);
         document_id_.push_back(document_id);
         map<string, double> words_tf;
@@ -114,14 +111,8 @@ public:
     };
 
     QueryPlusAndMinusWords FindQueryPlusAndMinusWords(const string& text) const {
-        if (!IsValidWord(text)) {
-            throw invalid_argument("query includes special characters");
-        }
         QueryPlusAndMinusWords query_plus_and_minus_words;
         for (const string& word : SplitIntoWordsNoStop(text)) {
-            if (!IsValidByMinus(word)) {
-                throw invalid_argument("incorrect using minuses");
-            }
             if (word[0] == '-') {
                 query_plus_and_minus_words.minus_words.insert(word.substr(1, word.size() - 1));
             }
@@ -201,6 +192,12 @@ private:
     vector<string> SplitIntoWordsNoStop(const string& text) const {
         vector<string> words;
         for (const string& word : SplitIntoWords(text)) {
+            if (!IsValidWord(text)) {
+                throw invalid_argument("query includes special characters");
+            }
+            if (!IsValidByMinus(word)) {
+                throw invalid_argument("incorrect using minuses");
+            }
             if (!IsStopWord(word)) {
                 words.push_back(word);
             }
