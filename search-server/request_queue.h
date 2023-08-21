@@ -11,13 +11,9 @@
 class RequestQueue {
 public:
     explicit RequestQueue(const SearchServer& search_server);
-
+    
     template <typename DocumentPredicate>
-    std::vector<Document> AddFindRequest(const std::string& raw_query, DocumentPredicate document_predicate) {
-        std::vector<Document> documents_found = search_server_.FindTopDocuments(raw_query, document_predicate);
-        CreateRequestsDeque(documents_found);
-        return documents_found;
-    }
+    std::vector<Document> AddFindRequest(const std::string& raw_query, DocumentPredicate document_predicate);
     std::vector<Document> AddFindRequest(const std::string& raw_query, DocumentStatus status);
     std::vector<Document> AddFindRequest(const std::string& raw_query);
     int GetNoResultRequests() const;
@@ -33,3 +29,10 @@ private:
     
     void CreateRequestsDeque(std::vector<Document> documents_found);
 };
+
+template <typename DocumentPredicate>
+std::vector<Document> RequestQueue::AddFindRequest(const std::string& raw_query, DocumentPredicate document_predicate) {
+    std::vector<Document> documents_found = search_server_.FindTopDocuments(raw_query, document_predicate);
+    CreateRequestsDeque(documents_found);
+    return documents_found;
+}

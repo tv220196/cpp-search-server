@@ -2,11 +2,7 @@
 
 #include <iostream>
 #include <iterator>
-#include <string>
 #include <vector>
-#include "document.h"
-
-using namespace std::literals::string_literals;
 
 template <typename Iterator>
 class IteratorRange {
@@ -76,15 +72,6 @@ private:
 template <typename Container>
 auto Paginate(const Container& c, size_t page_size) {
     return Paginator(begin(c), end(c), page_size);
-}
-
-std::ostream& operator<<(std::ostream& os, const Document& document) {
-    os << "{ "s
-        << "document_id = "s << document.id << ", "s
-        << "relevance = "s << document.relevance << ", "s
-        << "rating = "s << document.rating
-        << " }"s;
-    return os;
 }
 
 template <typename Iterator>

@@ -1,4 +1,3 @@
-#include <iostream>
 #include "document.h"
 
 using namespace std;
@@ -16,4 +15,13 @@ void PrintDocument(const Document& document) {
         << "relevance = "s << document.relevance << ", "s
         << "rating = "s << document.rating
         << " }"s << endl;
+}
+
+ostream& operator<<(ostream& os, const Document& document) {
+    os << "{ "s
+        << "document_id = "s << document.id << ", "s
+        << "relevance = "s << document.relevance << ", "s
+        << "rating = "s << document.rating
+        << " }"s;
+    return os;
 }

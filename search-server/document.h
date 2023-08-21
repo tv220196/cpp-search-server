@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+
 struct Document {
     Document(const int& create_server_id, const double& create_server_relevance, const int& create_server_rating);
     Document() = default;
@@ -16,3 +18,5 @@ enum class DocumentStatus {
 };
 
 void PrintDocument(const Document& document);
+
+std::ostream& operator<<(std::ostream& os, const Document& document);
